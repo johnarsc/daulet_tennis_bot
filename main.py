@@ -44,6 +44,7 @@ logger = logging.getLogger(__name__)
 
 SELECT_DATE, SELECT_TIME, CONFIRM = range(3)
 bookings_store: list = []
+booked_dates: set = set()  # защита от дублей: "YYYY-MM-DD" уже забронированных дат
 
 TIME_SLOTS = [
     ["07:00", "08:00", "09:00"],
@@ -335,7 +336,13 @@ async def auto_book(app: Application):
 
     target = get_next_target_date()
     date_str = target.strftime("%d.%m.%Y")
+    date_key = target.strftime("%Y-%m-%d")
     weekday_name = WEEKDAY_NAMES_FULL[target.weekday()]
+
+    # Защита от дублей — если уже забронировали на эту дату, пропускаем
+    if date_key in booked_dates:
+        logger.info(f"Дата {date_str} уже забронирована, пропускаю")
+        return
 
     if ADMIN_CHAT_ID:
         await app.bot.send_message(
@@ -356,6 +363,7 @@ async def auto_book(app: Application):
                 "time": time_str,
                 "reminded": False,
             })
+            booked_dates.add(date_key)  # помечаем дату как забронированную
             if ADMIN_CHAT_ID:
                 await app.bot.send_message(
                     chat_id=ADMIN_CHAT_ID,
@@ -571,11 +579,13 @@ def main():
     app.add_handler(conv)
 
     scheduler = AsyncIOScheduler(timezone="Asia/Almaty")
-    # Запускаем каждую минуту с 6:57 до 7:02
+    # Запускаем каждые 20 секунд с 6:57 до 7:02 (итого ~15 попыток)
     for minute in range(57, 60):
-        scheduler.add_job(auto_book, "cron", hour=6, minute=minute, args=[app])
+        for second in [0, 20, 40]:
+            scheduler.add_job(auto_book, "cron", hour=6, minute=minute, second=second, args=[app])
     for minute in range(0, 3):
-        scheduler.add_job(auto_book, "cron", hour=7, minute=minute, args=[app])
+        for second in [0, 20, 40]:
+            scheduler.add_job(auto_book, "cron", hour=7, minute=minute, second=second, args=[app])
     scheduler.add_job(send_reminders, "interval", minutes=5, args=[app])
     scheduler.start()
 
