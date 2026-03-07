@@ -8,6 +8,9 @@ Telegram-бот для Daulet Tennis Academy
 import logging
 import os
 from datetime import datetime, timedelta
+import pytz
+
+ALMATY_TZ = pytz.timezone("Asia/Almaty")
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from playwright.async_api import async_playwright
 from telegram import Update, ReplyKeyboardMarkup, ReplyKeyboardRemove, InlineKeyboardMarkup, InlineKeyboardButton
@@ -148,7 +151,7 @@ async def playwright_book(date_str: str, time_str: str, name: str, phone: str) -
 # ══════════════════════════════════════════════
 
 def get_next_target_date() -> datetime:
-    now = datetime.now()
+    now = datetime.now(ALMATY_TZ)
     for i in range(1, 8):
         candidate = now + timedelta(days=i)
         if candidate.weekday() in settings["target_weekdays"]:
@@ -395,7 +398,7 @@ async def start(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
 
 async def cmd_status(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     target = get_next_target_date()
-    now = datetime.now()
+    now = datetime.now(ALMATY_TZ)
     auto = "✅ Включено" if settings["auto_book_enabled"] else "❌ Выключено"
     days = ", ".join([WEEKDAY_NAMES_FULL[d] for d in sorted(settings["target_weekdays"])]) or "не выбраны"
     times = " → ".join(settings["preferred_times"]) or "не выбраны"
@@ -416,7 +419,7 @@ async def book_start(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     keyboard = []
     row = []
     for i in range(7):
-        day = datetime.now() + timedelta(days=i)
+        day = datetime.now(ALMATY_TZ) + timedelta(days=i)
         label = day.strftime("%d.%m")
         if i == 0: label += " (сегодня)"
         elif i == 1: label += " (завтра)"
@@ -508,7 +511,7 @@ async def confirm_booking(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
 
 
 async def my_bookings(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
-    now = datetime.now()
+    now = datetime.now(ALMATY_TZ)
     chat_id = update.effective_chat.id
     user_bookings = [b for b in bookings_store if b["chat_id"] == chat_id and b["datetime"] > now]
     if not user_bookings:
@@ -526,7 +529,7 @@ async def cancel(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
 
 
 async def send_reminders(app: Application):
-    now = datetime.now()
+    now = datetime.now(ALMATY_TZ)
     for b in bookings_store:
         if b["reminded"]:
             continue
@@ -568,7 +571,11 @@ def main():
     app.add_handler(conv)
 
     scheduler = AsyncIOScheduler(timezone="Asia/Almaty")
-    scheduler.add_job(auto_book, "cron", hour=7, minute=0, args=[app])
+    # Запускаем каждую минуту с 6:57 до 7:02
+    for minute in range(57, 60):
+        scheduler.add_job(auto_book, "cron", hour=6, minute=minute, args=[app])
+    for minute in range(0, 3):
+        scheduler.add_job(auto_book, "cron", hour=7, minute=minute, args=[app])
     scheduler.add_job(send_reminders, "interval", minutes=5, args=[app])
     scheduler.start()
 
