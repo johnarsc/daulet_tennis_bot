@@ -90,43 +90,69 @@ async def playwright_book(date_str: str, time_str: str, name: str, phone: str) -
                 await page.locator("text=Крытый").first.click(timeout=8000)
             await page.wait_for_timeout(1500)
 
-            await page.click("text=Выбрать дату и время", timeout=10000)
+            btn_dt = page.locator("button", has_text="Выбрать дату и время").first
+            await btn_dt.scroll_into_view_if_needed()
+            await btn_dt.click(timeout=8000)
             await page.wait_for_timeout(2000)
 
             date_obj = datetime.strptime(date_str, "%d.%m.%Y")
             day_num = str(date_obj.day)
-            await page.locator(f"text={day_num}").first.click(timeout=8000)
+            day_locator = page.locator("ui-kit-calendar-day").filter(
+                has=page.locator("[data-locator='working_day_number']", has_text=day_num)
+            ).first
+            await day_locator.scroll_into_view_if_needed()
+            await page.wait_for_timeout(300)
+            await day_locator.click(timeout=8000)
             await page.wait_for_timeout(1500)
 
-            time_locator = page.locator(f"text={time_str}").first
-            if not await time_locator.is_visible():
-                await page.evaluate("window.scrollBy(0, 300)")
-                await page.wait_for_timeout(1000)
-            if not await time_locator.is_visible():
+            time_rects = await page.evaluate("""(timeStr) => {
+                const all = document.querySelectorAll('*');
+                const results = [];
+                for (const el of all) {
+                    if (el.children.length === 0 && el.textContent.trim() === timeStr) {
+                        const rect = el.getBoundingClientRect();
+                        if (rect.width > 0) {
+                            results.push({left: rect.left, top: rect.top, right: rect.right, bottom: rect.bottom});
+                        }
+                    }
+                }
+                return results;
+            }""", time_str)
+
+            if not time_rects:
                 await browser.close()
                 return {"success": False, "error": f"Время {time_str} недоступно"}
 
-            await time_locator.click(timeout=8000)
+            r = time_rects[0]
+            cx = (r['left'] + r['right']) / 2
+            cy = (r['top'] + r['bottom']) / 2
+            await page.mouse.click(cx, cy)
             await page.wait_for_timeout(1000)
 
             await page.click("text=Готово", timeout=8000)
             await page.wait_for_timeout(2000)
 
-            name_input = page.locator("input[placeholder='Имя'], input[placeholder='Имя *']").first
+            name_input = page.locator("input[placeholder='Введите имя']").first
             await name_input.clear()
             await name_input.fill(name, timeout=5000)
             await page.wait_for_timeout(500)
 
-            phone_input = page.locator("input[placeholder='Телефон'], input[type='tel']").first
-            await phone_input.clear()
-            await phone_input.fill(phone, timeout=5000)
+            phone_input = page.locator("input[placeholder='Номер с кодом страны']").first
+            await phone_input.click()
+            await page.wait_for_timeout(300)
+            await phone_input.fill("", timeout=3000)
+            await page.keyboard.press("Control+a")
+            await page.keyboard.press("Delete")
+            await page.wait_for_timeout(300)
+            # Вводим только цифры без +7
+            digits = phone.replace("+7", "").replace(" ", "").replace("-", "")
+            await phone_input.type(digits, delay=50)
             await page.wait_for_timeout(500)
 
             try:
-                checkbox = page.locator("input[type='checkbox']").first
-                if not await checkbox.is_checked():
-                    await checkbox.click(timeout=3000)
-                    await page.wait_for_timeout(500)
+                checkbox_label = page.locator("ui-kit-checkbox[data-locator='agreement_checkbox'] label").first
+                await checkbox_label.scroll_into_view_if_needed()
+                await checkbox_label.click(timeout=5000, force=True)
             except Exception:
                 pass
 
