@@ -27,7 +27,7 @@ ADMIN_CHAT_ID      = int(os.environ.get("ADMIN_CHAT_ID", "0"))
 YOUR_NAME          = os.environ.get("YOUR_NAME", "Асия")
 YOUR_PHONE         = os.environ.get("YOUR_PHONE", "+77777720466")
 
-BOOKING_URL = "https://n551098.alteg.io/company/521176/personal/menu?o="
+BOOKING_URL = "https://tennisdaulet.altegio.me/company/521176/personal/menu?o="
 
 WEEKDAY_NAMES = ["Пн", "Вт", "Ср", "Чт", "Пт", "Сб", "Вс"]
 WEEKDAY_NAMES_FULL = ["Понедельник", "Вторник", "Среда", "Четверг", "Пятница", "Суббота", "Воскресенье"]
@@ -208,6 +208,7 @@ def settings_text() -> str:
 
 async def cmd_settings(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     if update.effective_chat.id != ADMIN_CHAT_ID:
+        await update.message.reply_text("⛔ Доступ запрещён")
         return
     keyboard = InlineKeyboardMarkup([
         [InlineKeyboardButton("📅 Изменить дни", callback_data="set_days")],
@@ -420,6 +421,7 @@ async def auto_book(app: Application):
 
 async def start(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     if update.effective_chat.id != ADMIN_CHAT_ID:
+        await update.message.reply_text("⛔ Доступ запрещён")
         return
     await update.message.reply_text(
         "🎾 *Daulet Tennis Academy*\n\n"
@@ -436,6 +438,7 @@ async def start(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
 
 async def cmd_status(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     if update.effective_chat.id != ADMIN_CHAT_ID:
+        await update.message.reply_text("⛔ Доступ запрещён")
         return
     target = get_next_target_date()
     now = datetime.now(ALMATY_TZ)
@@ -456,6 +459,7 @@ async def cmd_status(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
 
 async def book_start(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     if update.effective_chat.id != ADMIN_CHAT_ID:
+        await update.message.reply_text("⛔ Доступ запрещён")
         return ConversationHandler.END
     days_map = {}
     keyboard = []
@@ -554,6 +558,7 @@ async def confirm_booking(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
 
 async def my_bookings(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     if update.effective_chat.id != ADMIN_CHAT_ID:
+        await update.message.reply_text("⛔ Доступ запрещён")
         return
     now = datetime.now(ALMATY_TZ)
     chat_id = update.effective_chat.id
