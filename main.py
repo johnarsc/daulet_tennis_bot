@@ -72,28 +72,28 @@ async def playwright_book(date_str: str, time_str: str, name: str, phone: str) -
             )
             page = await context.new_page()
 
-            await page.goto(BOOKING_URL, wait_until="networkidle", timeout=30000)
-            await page.wait_for_timeout(2000)
+            await page.goto(BOOKING_URL, wait_until="domcontentloaded", timeout=30000)
+            await page.wait_for_timeout(1500)
 
             await page.click("text=Аренда теннисного корта", timeout=10000)
-            await page.wait_for_timeout(1500)
+            await page.wait_for_timeout(600)
 
             await page.click("text=Аренда крытого корта", timeout=10000)
-            await page.wait_for_timeout(1000)
+            await page.wait_for_timeout(400)
 
             await page.click("text=Выбрать корт", timeout=10000)
-            await page.wait_for_timeout(1500)
+            await page.wait_for_timeout(600)
 
             try:
                 await page.click("text=Корт 7", timeout=8000)
             except Exception:
                 await page.locator("text=Крытый").first.click(timeout=8000)
-            await page.wait_for_timeout(1500)
+            await page.wait_for_timeout(600)
 
             btn_dt = page.locator("button", has_text="Выбрать дату и время").first
             await btn_dt.scroll_into_view_if_needed()
             await btn_dt.click(timeout=8000)
-            await page.wait_for_timeout(2000)
+            await page.wait_for_timeout(800)
 
             date_obj = datetime.strptime(date_str, "%d.%m.%Y")
             day_num = str(date_obj.day)
@@ -101,9 +101,9 @@ async def playwright_book(date_str: str, time_str: str, name: str, phone: str) -
                 has=page.locator("[data-locator='working_day_number']", has_text=day_num)
             ).first
             await day_locator.scroll_into_view_if_needed()
-            await page.wait_for_timeout(300)
+            await page.wait_for_timeout(150)
             await day_locator.click(timeout=8000)
-            await page.wait_for_timeout(1500)
+            await page.wait_for_timeout(600)
 
             time_rects = await page.evaluate("""(timeStr) => {
                 const all = document.querySelectorAll('*');
@@ -127,27 +127,27 @@ async def playwright_book(date_str: str, time_str: str, name: str, phone: str) -
             cx = (r['left'] + r['right']) / 2
             cy = (r['top'] + r['bottom']) / 2
             await page.mouse.click(cx, cy)
-            await page.wait_for_timeout(1000)
+            await page.wait_for_timeout(400)
 
             await page.click("text=Готово", timeout=8000)
-            await page.wait_for_timeout(2000)
+            await page.wait_for_timeout(800)
 
             name_input = page.locator("input[placeholder='Введите имя']").first
             await name_input.clear()
             await name_input.fill(name, timeout=5000)
-            await page.wait_for_timeout(500)
+            await page.wait_for_timeout(200)
 
             phone_input = page.locator("input[placeholder='Номер с кодом страны']").first
             await phone_input.click()
-            await page.wait_for_timeout(300)
+            await page.wait_for_timeout(150)
             await phone_input.fill("", timeout=3000)
             await page.keyboard.press("Control+a")
             await page.keyboard.press("Delete")
-            await page.wait_for_timeout(300)
+            await page.wait_for_timeout(150)
             # Вводим только цифры без +7
             digits = phone.replace("+7", "").replace(" ", "").replace("-", "")
             await phone_input.type(digits, delay=50)
-            await page.wait_for_timeout(500)
+            await page.wait_for_timeout(200)
 
             try:
                 checkbox_label = page.locator("ui-kit-checkbox[data-locator='agreement_checkbox'] label").first
@@ -157,7 +157,7 @@ async def playwright_book(date_str: str, time_str: str, name: str, phone: str) -
                 pass
 
             await page.click("text=Записаться", timeout=8000)
-            await page.wait_for_timeout(4000)
+            await page.wait_for_timeout(1500)
 
             screenshot = await page.screenshot(type="png", full_page=True)
             page_text = await page.content()
@@ -207,6 +207,8 @@ def settings_text() -> str:
 # ══════════════════════════════════════════════
 
 async def cmd_settings(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
+    if update.effective_chat.id != ADMIN_CHAT_ID:
+        return
     keyboard = InlineKeyboardMarkup([
         [InlineKeyboardButton("📅 Изменить дни", callback_data="set_days")],
         [InlineKeyboardButton("⏰ Изменить время", callback_data="set_times")],
@@ -417,6 +419,8 @@ async def auto_book(app: Application):
 # ══════════════════════════════════════════════
 
 async def start(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
+    if update.effective_chat.id != ADMIN_CHAT_ID:
+        return
     await update.message.reply_text(
         "🎾 *Daulet Tennis Academy*\n\n"
         "Привет! Я автоматически бронирую корт каждый день в 07:00.\n\n"
@@ -431,6 +435,8 @@ async def start(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
 
 
 async def cmd_status(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
+    if update.effective_chat.id != ADMIN_CHAT_ID:
+        return
     target = get_next_target_date()
     now = datetime.now(ALMATY_TZ)
     auto = "✅ Включено" if settings["auto_book_enabled"] else "❌ Выключено"
@@ -449,6 +455,8 @@ async def cmd_status(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
 
 
 async def book_start(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
+    if update.effective_chat.id != ADMIN_CHAT_ID:
+        return ConversationHandler.END
     days_map = {}
     keyboard = []
     row = []
@@ -545,6 +553,8 @@ async def confirm_booking(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
 
 
 async def my_bookings(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
+    if update.effective_chat.id != ADMIN_CHAT_ID:
+        return
     now = datetime.now(ALMATY_TZ)
     chat_id = update.effective_chat.id
     user_bookings = [b for b in bookings_store if b["chat_id"] == chat_id and b["datetime"] > now]
